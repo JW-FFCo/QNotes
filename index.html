@@ -1,50 +1,66 @@
-
+html_content = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>QNotes</title>
   <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
   <style>
-    body, html {
+    body {
       margin: 0;
-      padding: 0;
-      height: 100%;
       font-family: sans-serif;
+      background: #f4f4f4;
     }
-    #login {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 10;
+    #login-container {
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
     }
-    #taskButton {
+    #login-button {
+      padding: 12px 24px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    #app-container {
       display: none;
-      position: absolute;
+      flex-direction: column;
+      height: 100vh;
+    }
+    textarea {
+      flex: 1;
+      width: 100%;
+      font-size: 16px;
+      padding: 10px;
+      box-sizing: border-box;
+      border: none;
+      resize: none;
+    }
+    #task-button {
+      position: fixed;
       bottom: 20px;
       right: 20px;
       padding: 10px 20px;
+      font-size: 16px;
       background-color: #0078d4;
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      z-index: 10;
-    }
-    textarea {
-      width: 100%;
-      height: 100%;
-      padding: 20px;
-      box-sizing: border-box;
-      font-size: 16px;
-      resize: none;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <button id="login">Sign In</button>
-  <button id="taskButton">Create Task</button>
-  <textarea id="notes" placeholder="Start typing your notes..."></textarea>
+  <div id="login-container">
+    <button id="login-button">Sign in to QNotes</button>
+  </div>
+
+  <div id="app-container">
+    <textarea id="notes" placeholder="Start typing your notes..."></textarea>
+    <button id="task-button">Create Task</button>
+  </div>
 
   <script>
     const msalConfig = {
@@ -55,82 +71,87 @@
     };
 
     const msalInstance = new msal.PublicClientApplication(msalConfig);
-    let accessToken = null;
-    let account = null;
 
-    document.getElementById("login").onclick = async () => {
-      try {
-        const loginResponse = await msalInstance.loginPopup({
-          scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
-        });
-        account = loginResponse.account;
-        const tokenResponse = await msalInstance.acquireTokenSilent({
-          scopes: ["Files.ReadWrite", "Tasks.ReadWrite"],
-          account: account
-        });
-        accessToken = tokenResponse.accessToken;
-        document.getElementById("login").style.display = "none";
-        loadNotes();
-      } catch (error) {
+    const loginRequest = {
+      scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
+    };
+
+    const loginButton = document.getElementById("login-button");
+    const loginContainer = document.getElementById("login-container");
+    const appContainer = document.getElementById("app-container");
+    const notes = document.getElementById("notes");
+    const taskButton = document.getElementById("task-button");
+
+    loginButton.onclick = () => {
+      msalInstance.loginPopup(loginRequest).then(response => {
+        loginContainer.style.display = "none";
+        appContainer.style.display = "flex";
+        initializeApp(response.account);
+      }).catch(error => {
         console.error(error);
-      }
+        alert("Login failed.");
+      });
     };
 
-    async function loadNotes() {
-      const response = await fetch("https://graph.microsoft.com/v1.0/me/drive/special/approot:/qnotes.txt", {
-        headers: { Authorization: `Bearer ${accessToken}` }
+    function initializeApp(account) {
+      msalInstance.setActiveAccount(account);
+
+      // Load saved notes from localStorage
+      notes.value = localStorage.getItem("qnotes") || "";
+
+      // Save notes on input
+      notes.addEventListener("input", () => {
+        localStorage.setItem("qnotes", notes.value);
       });
-      if (response.ok) {
-        const data = await response.json();
-        const downloadUrl = data["@microsoft.graph.downloadUrl"];
-        const noteText = await fetch(downloadUrl).then(res => res.text());
-        document.getElementById("notes").value = noteText;
-      }
+
+      // Show task button when text is selected
+      notes.addEventListener("mouseup", () => {
+        const selection = window.getSelection().toString();
+        taskButton.style.display = selection ? "block" : "none";
+      });
+
+      // Create task on button click
+      taskButton.onclick = () => {
+        const selectedText = window.getSelection().toString();
+        if (!selectedText) return;
+
+        msalInstance.acquireTokenSilent(loginRequest).then(tokenResponse => {
+          const accessToken = tokenResponse.accessToken;
+          const task = {
+            subject: selectedText,
+            dueDateTime: {
+              dateTime: new Date().toISOString(),
+              timeZone: "UTC"
+            }
+          };
+
+          fetch("https://graph.microsoft.com/v1.0/me/todo/lists/tasks/tasks", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(task)
+          }).then(res => {
+            if (res.ok) {
+              alert("Task created successfully!");
+            } else {
+              alert("Failed to create task.");
+            }
+          });
+        }).catch(err => {
+          console.error(err);
+          alert("Authentication error.");
+        });
+      };
     }
-
-    async function saveNotes(content) {
-      await fetch("https://graph.microsoft.com/v1.0/me/drive/special/approot:/qnotes.txt:/content", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "text/plain"
-        },
-        body: content
-      });
-    }
-
-    document.getElementById("notes").addEventListener("input", (e) => {
-      if (accessToken) {
-        saveNotes(e.target.value);
-      }
-    });
-
-    document.getElementById("notes").addEventListener("mouseup", () => {
-      const selection = window.getSelection().toString();
-      document.getElementById("taskButton").style.display = selection ? "block" : "none";
-    });
-
-    document.getElementById("taskButton").onclick = async () => {
-      const selection = window.getSelection().toString();
-      if (!selection || !accessToken) return;
-
-      const now = new Date().toISOString();
-      await fetch("https://graph.microsoft.com/v1.0/me/todo/lists/tasks/tasks", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          title: selection,
-          dueDateTime: {
-            dateTime: now,
-            timeZone: "UTC"
-          }
-        })
-      });
-      alert("Task created in Microsoft To Do!");
-    };
   </script>
 </body>
 </html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("Updated index.html file has been created with sign-in required before showing the notepad interface.")
+
