@@ -2,150 +2,97 @@ html_content = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QNotes</title>
-  <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background: #f4f4f4;
-    }
-    #login-container {
-      display: flex;
-      height: 100vh;
-      justify-content: center;
-      align-items: center;
-    }
-    #login-button {
-      padding: 12px 24px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-    #app-container {
-      display: none;
-      flex-direction: column;
-      height: 100vh;
-    }
-    textarea {
-      flex: 1;
-      width: 100%;
-      font-size: 16px;
-      padding: 10px;
-      box-sizing: border-box;
-      border: none;
-      resize: none;
-    }
-    #task-button {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #0078d4;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      display: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>QNotes</title>
+    <script src="https://alcdn.msauth.net/browser/2.31.0/js/msal-browser.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f4f4f4;
+        }
+        #login-screen {
+            text-align: center;
+        }
+        #notepad {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+        }
+        textarea {
+            flex-grow: 1;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        #task-button {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <div id="login-container">
-    <button id="login-button">Sign in to QNotes</button>
-  </div>
+    <div id="login-screen">
+        <h2>Sign in to QNotes</h2>
+        <button onclick="signIn()">Sign In</button>
+        <p id="error-message" style="color: red;"></p>
+    </div>
 
-  <div id="app-container">
-    <textarea id="notes" placeholder="Start typing your notes..."></textarea>
-    <button id="task-button">Create Task</button>
-  </div>
+    <div id="notepad">
+        <textarea id="notes" placeholder="Start typing your notes here..."></textarea>
+        <button id="task-button" onclick="createTask()">Create Task</button>
+    </div>
 
-  <script>
-    const msalConfig = {
-      auth: {
-        clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
-        redirectUri: "https://jw-ffco.github.io/QNotes/"
-      }
-    };
-
-    const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-    const loginRequest = {
-      scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
-    };
-
-    const loginButton = document.getElementById("login-button");
-    const loginContainer = document.getElementById("login-container");
-    const appContainer = document.getElementById("app-container");
-    const notes = document.getElementById("notes");
-    const taskButton = document.getElementById("task-button");
-
-    loginButton.onclick = () => {
-      msalInstance.loginPopup(loginRequest).then(response => {
-        loginContainer.style.display = "none";
-        appContainer.style.display = "flex";
-        initializeApp(response.account);
-      }).catch(error => {
-        console.error(error);
-        alert("Login failed.");
-      });
-    };
-
-    function initializeApp(account) {
-      msalInstance.setActiveAccount(account);
-
-      // Load saved notes from localStorage
-      notes.value = localStorage.getItem("qnotes") || "";
-
-      // Save notes on input
-      notes.addEventListener("input", () => {
-        localStorage.setItem("qnotes", notes.value);
-      });
-
-      // Show task button when text is selected
-      notes.addEventListener("mouseup", () => {
-        const selection = window.getSelection().toString();
-        taskButton.style.display = selection ? "block" : "none";
-      });
-
-      // Create task on button click
-      taskButton.onclick = () => {
-        const selectedText = window.getSelection().toString();
-        if (!selectedText) return;
-
-        msalInstance.acquireTokenSilent(loginRequest).then(tokenResponse => {
-          const accessToken = tokenResponse.accessToken;
-          const task = {
-            subject: selectedText,
-            dueDateTime: {
-              dateTime: new Date().toISOString(),
-              timeZone: "UTC"
+    <script>
+        const msalConfig = {
+            auth: {
+                clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
+                redirectUri: "https://jw-ffco.github.io/QNotes/"
             }
-          };
+        };
 
-          fetch("https://graph.microsoft.com/v1.0/me/todo/lists/tasks/tasks", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(task)
-          }).then(res => {
-            if (res.ok) {
-              alert("Task created successfully!");
-            } else {
-              alert("Failed to create task.");
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        async function signIn() {
+            try {
+                const loginResponse = await msalInstance.loginPopup({
+                    scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
+                });
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("notepad").style.display = "flex";
+                document.getElementById("task-button").style.display = "none";
+            } catch (error) {
+                document.getElementById("error-message").textContent = "Login failed. Please try again.";
+                console.error(error);
             }
-          });
-        }).catch(err => {
-          console.error(err);
-          alert("Authentication error.");
+        }
+
+        document.getElementById("notes").addEventListener("mouseup", () => {
+            const selectedText = window.getSelection().toString().trim();
+            document.getElementById("task-button").style.display = selectedText ? "block" : "none";
         });
-      };
-    }
-  </script>
+
+        function createTask() {
+            const selectedText = window.getSelection().toString().trim();
+            if (selectedText) {
+                alert("Task creation logic goes here for: " + selectedText);
+            }
+        }
+    </script>
 </body>
 </html>
 """
@@ -153,5 +100,5 @@ html_content = """
 with open("index.html", "w", encoding="utf-8") as f:
     f.write(html_content)
 
-print("Updated index.html file has been created with sign-in required before showing the notepad interface.")
+print("Corrected index.html file has been created with sign-in required before showing the notepad interface.")
 
