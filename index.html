@@ -49,7 +49,7 @@
 <body>
     <div id="login-screen">
         <h2>Sign in to QNotes</h2>
-        <button onclick="signIn()">Sign In</button>
+        <button id="sign-in-button">Sign In</button>
     </div>
 
     <div id="notepad">
@@ -58,28 +58,37 @@
     </div>
 
     <script>
-        const msalConfig = {
-            auth: {
-                clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
-                redirectUri: "https://jw-ffco.github.io/QNotes/"
-            }
-        };
+        let msalInstance;
 
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-        async function signIn() {
-            try {
-                const loginResponse = await msalInstance.loginPopup({
-                    scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
-                });
-                if (loginResponse.account) {
-                    document.getElementById("login-screen").style.display = "none";
-                    document.getElementById("notepad").style.display = "block";
+        window.addEventListener('DOMContentLoaded', () => {
+            const msalConfig = {
+                auth: {
+                    clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
+                    redirectUri: "https://jw-ffco.github.io/QNotes/"
                 }
-            } catch (error) {
-                alert("Login failed: " + error.message);
-            }
-        }
+            };
+
+            msalInstance = new msal.PublicClientApplication(msalConfig);
+
+            document.getElementById("sign-in-button").addEventListener("click", async () => {
+                try {
+                    const loginResponse = await msalInstance.loginPopup({
+                        scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
+                    });
+                    if (loginResponse.account) {
+                        document.getElementById("login-screen").style.display = "none";
+                        document.getElementById("notepad").style.display = "block";
+                    }
+                } catch (error) {
+                    alert("Login failed: " + error.message);
+                }
+            });
+
+            document.getElementById("notes").addEventListener("mouseup", () => {
+                const selectedText = window.getSelection().toString().trim();
+                document.getElementById("task-button").style.display = selectedText ? "block" : "none";
+            });
+        });
 
         function createTask() {
             const selectedText = window.getSelection().toString();
@@ -89,11 +98,6 @@
             }
             alert("Task creation logic will go here for: " + selectedText);
         }
-
-        document.getElementById("notes").addEventListener("mouseup", () => {
-            const selectedText = window.getSelection().toString().trim();
-            document.getElementById("task-button").style.display = selectedText ? "block" : "none";
-        });
     </script>
 </body>
 </html>
