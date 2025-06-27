@@ -9,10 +9,10 @@
             font-family: Arial, sans-serif;
             margin: 0;
             height: 100vh;
+            background-color: #f4f4f4;
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #f4f4f4;
         }
         #login-screen {
             text-align: center;
@@ -57,8 +57,8 @@
         <button id="task-button">Create Task</button>
     </div>
 
-    <script defer>
-        window.addEventListener('DOMContentLoaded', () => {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
             const msalConfig = {
                 auth: {
                     clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
