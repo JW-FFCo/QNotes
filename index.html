@@ -1,10 +1,9 @@
-html_content = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>QNotes</title>
-    <script src="https://alcdn.msauth.net/browser/2.31.0/js/msal-browser.min.js"></script>
+    https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -20,28 +19,30 @@ html_content = """
         }
         #notepad {
             display: none;
-            flex-direction: column;
             width: 100%;
             height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
         }
         textarea {
-            flex-grow: 1;
             width: 100%;
-            padding: 10px;
+            height: calc(100vh - 60px);
             font-size: 16px;
+            padding: 10px;
             box-sizing: border-box;
         }
         #task-button {
-            display: none;
             position: fixed;
             bottom: 20px;
             right: 20px;
             padding: 10px 20px;
+            font-size: 16px;
             background-color: #0078d4;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            display: none;
         }
     </style>
 </head>
@@ -49,11 +50,10 @@ html_content = """
     <div id="login-screen">
         <h2>Sign in to QNotes</h2>
         <button onclick="signIn()">Sign In</button>
-        <p id="error-message" style="color: red;"></p>
     </div>
 
     <div id="notepad">
-        <textarea id="notes" placeholder="Start typing your notes here..."></textarea>
+        <textarea id="notes" placeholder="Start typing your notes..."></textarea>
         <button id="task-button" onclick="createTask()">Create Task</button>
     </div>
 
@@ -72,33 +72,28 @@ html_content = """
                 const loginResponse = await msalInstance.loginPopup({
                     scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
                 });
-                document.getElementById("login-screen").style.display = "none";
-                document.getElementById("notepad").style.display = "flex";
-                document.getElementById("task-button").style.display = "none";
+                if (loginResponse.account) {
+                    document.getElementById("login-screen").style.display = "none";
+                    document.getElementById("notepad").style.display = "block";
+                }
             } catch (error) {
-                document.getElementById("error-message").textContent = "Login failed. Please try again.";
-                console.error(error);
+                alert("Login failed: " + error.message);
             }
+        }
+
+        function createTask() {
+            const selectedText = window.getSelection().toString();
+            if (!selectedText) {
+                alert("Please highlight some text to create a task.");
+                return;
+            }
+            alert("Task creation logic will go here for: " + selectedText);
         }
 
         document.getElementById("notes").addEventListener("mouseup", () => {
             const selectedText = window.getSelection().toString().trim();
             document.getElementById("task-button").style.display = selectedText ? "block" : "none";
         });
-
-        function createTask() {
-            const selectedText = window.getSelection().toString().trim();
-            if (selectedText) {
-                alert("Task creation logic goes here for: " + selectedText);
-            }
-        }
     </script>
 </body>
 </html>
-"""
-
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print("Corrected index.html file has been created with sign-in required before showing the notepad interface.")
-
