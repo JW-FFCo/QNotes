@@ -60,6 +60,11 @@
     https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            if (typeof msal === "undefined") {
+                alert("MSAL.js failed to load.");
+                return;
+            }
+
             const msalConfig = {
                 auth: {
                     clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
