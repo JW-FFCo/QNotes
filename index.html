@@ -1,78 +1,136 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickNotes</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        textarea {
-            width: 100%;
-            height: 100%;
-            border: none;
-            padding: 1rem;
-            font-size: 1rem;
-            resize: none;
-            outline: none;
-        }
-        .task-button {
-            display: none;
-            position: absolute;
-            background-color: #0078d4;
-            color: white;
-            border: none;
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>QNotes</title>
+  <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+    }
+    #login {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+    }
+    #taskButton {
+      display: none;
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background-color: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      font-size: 16px;
+      resize: none;
+    }
+  </style>
 </head>
 <body>
-    <textarea id="notes" placeholder="Start typing your notes here..."></textarea>
-    <button id="createTaskButton" class="task-button">Create Task</button>
-    <script>
-        const notes = document.getElementById('notes');
-        const createTaskButton = document.getElementById('createTaskButton');
+  <button id="login">Sign In</button>
+  <button id="taskButton">Create Task</button>
+  <textarea id="notes" placeholder="Start typing your notes..."></textarea>
 
-        function loadNotes() {
-            const savedNotes = localStorage.getItem('quickNotes');
-            if (savedNotes) notes.value = savedNotes;
-        }
+  <script>
+    const msalConfig = {
+      auth: {
+        clientId: "74ab75f1-811e-4246-a20c-6ef459ecf257",
+        redirectUri: "https://jw-ffco.github.io/QNotes/"
+      }
+    };
 
-        function saveNotes() {
-            localStorage.setItem('quickNotes', notes.value);
-        }
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    let accessToken = null;
+    let account = null;
 
-        function createTask(text) {
-            alert(`Task created: ${text}`);
-        }
-
-        window.onload = loadNotes;
-        notes.addEventListener('input', saveNotes);
-
-        notes.addEventListener('mouseup', (event) => {
-            const selection = window.getSelection().toString();
-            if (selection) {
-                createTaskButton.style.display = 'block';
-                createTaskButton.style.top = `${event.clientY}px`;
-                createTaskButton.style.left = `${event.clientX}px`;
-            } else {
-                createTaskButton.style.display = 'none';
-            }
+    document.getElementById("login").onclick = async () => {
+      try {
+        const loginResponse = await msalInstance.loginPopup({
+          scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
         });
-
-        createTaskButton.addEventListener('click', () => {
-            const selection = window.getSelection().toString();
-            if (selection) {
-                createTask(selection);
-                createTaskButton.style.display = 'none';
-            }
+        account = loginResponse.account;
+        const tokenResponse = await msalInstance.acquireTokenSilent({
+          scopes: ["Files.ReadWrite", "Tasks.ReadWrite"],
+          account: account
         });
-    </script>
+        accessToken = tokenResponse.accessToken;
+        document.getElementById("login").style.display = "none";
+        loadNotes();
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    async function loadNotes() {
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/drive/special/approot:/qnotes.txt", {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const downloadUrl = data["@microsoft.graph.downloadUrl"];
+        const noteText = await fetch(downloadUrl).then(res => res.text());
+        document.getElementById("notes").value = noteText;
+      }
+    }
+
+    async function saveNotes(content) {
+      await fetch("https://graph.microsoft.com/v1.0/me/drive/special/approot:/qnotes.txt:/content", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "text/plain"
+        },
+        body: content
+      });
+    }
+
+    document.getElementById("notes").addEventListener("input", (e) => {
+      if (accessToken) {
+        saveNotes(e.target.value);
+      }
+    });
+
+    document.getElementById("notes").addEventListener("mouseup", () => {
+      const selection = window.getSelection().toString();
+      document.getElementById("taskButton").style.display = selection ? "block" : "none";
+    });
+
+    document.getElementById("taskButton").onclick = async () => {
+      const selection = window.getSelection().toString();
+      if (!selection || !accessToken) return;
+
+      const now = new Date().toISOString();
+      await fetch("https://graph.microsoft.com/v1.0/me/todo/lists/tasks/tasks", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: selection,
+          dueDateTime: {
+            dateTime: now,
+            timeZone: "UTC"
+          }
+        })
+      });
+      alert("Task created in Microsoft To Do!");
+    };
+  </script>
 </body>
 </html>
