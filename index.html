@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickNotes</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 1rem;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+        }
+        .task-button {
+            display: none;
+            position: absolute;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="notes" placeholder="Start typing your notes here..."></textarea>
+    <button id="createTaskButton" class="task-button">Create Task</button>
+    <script>
+        const notes = document.getElementById('notes');
+        const createTaskButton = document.getElementById('createTaskButton');
+
+        function loadNotes() {
+            const savedNotes = localStorage.getItem('quickNotes');
+            if (savedNotes) notes.value = savedNotes;
+        }
+
+        function saveNotes() {
+            localStorage.setItem('quickNotes', notes.value);
+        }
+
+        function createTask(text) {
+            alert(`Task created: ${text}`);
+        }
+
+        window.onload = loadNotes;
+        notes.addEventListener('input', saveNotes);
+
+        notes.addEventListener('mouseup', (event) => {
+            const selection = window.getSelection().toString();
+            if (selection) {
+                createTaskButton.style.display = 'block';
+                createTaskButton.style.top = `${event.clientY}px`;
+                createTaskButton.style.left = `${event.clientX}px`;
+            } else {
+                createTaskButton.style.display = 'none';
+            }
+        });
+
+        createTaskButton.addEventListener('click', () => {
+            const selection = window.getSelection().toString();
+            if (selection) {
+                createTask(selection);
+                createTaskButton.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
