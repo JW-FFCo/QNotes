@@ -9,15 +9,8 @@
             margin: 0;
             height: 100vh;
             background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #login-screen {
-            text-align: center;
         }
         #notepad {
-            display: none;
             width: 100%;
             height: 100vh;
             padding: 20px;
@@ -30,38 +23,31 @@
             padding: 10px;
             box-sizing: border-box;
         }
-        #task-button {
+        #sign-in-button {
             position: fixed;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
             padding: 10px 20px;
-            font-size: 16px;
+            font-size: 14px;
             background-color: #0078d4;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            display: none;
         }
     </style>
 </head>
 <body>
-    <div id="login-screen">
-        <h2>Sign in to QNotes</h2>
+    <div id="notepad">
+        <textarea id="notes" placeholder="Start typing your notes..."></textarea>
         <button id="sign-in-button">Sign In</button>
     </div>
 
-    <div id="notepad">
-        <textarea id="notes" placeholder="Start typing your notes..."></textarea>
-        <button id="task-button">Create Task</button>
-    </div>
-
-    <!-- Load MSAL.js properly -->
     https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             if (typeof msal === "undefined") {
-                alert("MSAL.js failed to load.");
+                console.error("MSAL.js failed to load.");
                 return;
             }
 
@@ -75,10 +61,6 @@
             const msalInstance = new msal.PublicClientApplication(msalConfig);
 
             const signInButton = document.getElementById("sign-in-button");
-            const loginScreen = document.getElementById("login-screen");
-            const notepad = document.getElementById("notepad");
-            const notes = document.getElementById("notes");
-            const taskButton = document.getElementById("task-button");
 
             signInButton.addEventListener("click", async () => {
                 try {
@@ -86,26 +68,11 @@
                         scopes: ["Files.ReadWrite", "Tasks.ReadWrite"]
                     });
                     if (loginResponse.account) {
-                        loginScreen.style.display = "none";
-                        notepad.style.display = "block";
+                        alert("Signed in as: " + loginResponse.account.username);
                     }
                 } catch (error) {
                     alert("Login failed: " + error.message);
                 }
-            });
-
-            notes.addEventListener("mouseup", () => {
-                const selectedText = window.getSelection().toString().trim();
-                taskButton.style.display = selectedText ? "block" : "none";
-            });
-
-            taskButton.addEventListener("click", () => {
-                const selectedText = window.getSelection().toString().trim();
-                if (!selectedText) {
-                    alert("Please highlight some text to create a task.");
-                    return;
-                }
-                alert("Task creation logic will go here for: " + selectedText);
             });
         });
     </script>
